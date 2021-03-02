@@ -136,6 +136,7 @@ bool mlir::linalg::isaContractionOpInterface(LinalgOp linalgOp) {
 /// In the future, we may wish to allow more input arguments and elementwise and
 /// constant operations that do not involve the reduction dimension(s).
 LogicalResult mlir::linalg::detail::verifyContractionInterface(Operation *op) {
+  printf("Verify contraction\n");
   auto res = isContractionInterfaceImpl(op);
   if (res == MatchContractionResult::NotLinalgOp)
     return op->emitError("expected a LinalgOp");
@@ -288,6 +289,37 @@ Optional<Value> LinalgOp::inferResultDimFromInputShapes(OpBuilder &b,
 
 LogicalResult mlir::linalg::detail::verifyStructuredOpInterface(Operation *op) {
   LinalgOp linalgOp = cast<LinalgOp>(op);
+
+  // Get size of input/output operand shapes
+  SmallVector<unsigned, 0> shapeSizes;
+  for (int i=0; i<linalgOp.getNumInputs(); i++) {
+    auto t = linalgOp.getInput(i).getType().template cast<ShapedType>();
+for (int j=0; j<t.getRank(); j++)
+  shapeSizes.push_back(t.getDimSize(j));
+  }
+  for (int i=0; i<linalgOp.getNumOutputs(); i++) {
+    auto t = linalgOp.getOutput(i).getType().template cast<ShapedType>();
+for (int j=0; j<t.getRank(); j++)
+  shapeSizes.push_back(t.getDimSize(j));
+  }
+
+  // Check if shapes are valid
+//  linalgOp.getLoopsToShapesMap().dump();
+  auto indexAccess = linalgOp.getLoopsToShapesMap().getResults();
+  DenseMap<AffineExpr, unsigned> checker;
+  int i = 0;
+  for (int j=0; j<indexAccess.size(); j++) {
+    // The number of accesses and shape sizes are always same?
+    if (i >= shapeSizes.size()) { printf("something left\n"); break; }
+//    printf("input size %d, \n", shapeSizes[i]);
+//    indexAccess[j].dump();
+    if (checker.count(indexAccess[j]) && checker[indexAccess[j]] != shapeSizes[i]) printf("mismatch\n");
+    else
+      checker[indexAccess[j]] = shapeSizes[i];
+      i++;
+  }
+// printf("operand size %d access size %d\n", shapeSizes.size(), indexAccess.size());
+
   // Expect at least one shaped operand.
   // This means an op that constructs a tensor out of indices cannot be a
   // LinalgOp at the moment. For now this will have to be a special op until we
