@@ -136,7 +136,6 @@ bool mlir::linalg::isaContractionOpInterface(LinalgOp linalgOp) {
 /// In the future, we may wish to allow more input arguments and elementwise and
 /// constant operations that do not involve the reduction dimension(s).
 LogicalResult mlir::linalg::detail::verifyContractionInterface(Operation *op) {
-  printf("Verify contraction\n");
   auto res = isContractionInterfaceImpl(op);
   if (res == MatchContractionResult::NotLinalgOp)
     return op->emitError("expected a LinalgOp");
