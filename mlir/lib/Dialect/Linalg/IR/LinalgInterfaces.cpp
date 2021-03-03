@@ -12,6 +12,7 @@
 #include "mlir/IR/AffineExprVisitor.h"
 #include "mlir/IR/AffineMap.h"
 #include "llvm/ADT/SmallSet.h"
+#include "mlir/Dialect/Linalg/Utils/Utils.h"
 
 using namespace mlir;
 using namespace mlir::linalg;
@@ -289,15 +290,10 @@ Optional<Value> LinalgOp::inferResultDimFromInputShapes(OpBuilder &b,
 LogicalResult mlir::linalg::detail::verifyStructuredOpInterface(Operation *op) {
   LinalgOp linalgOp = cast<LinalgOp>(op);
 
-  // Get size of input/output operand shapes
+  // Get size of operands
   SmallVector<unsigned, 0> shapeSizes;
-  for (int i=0; i<linalgOp.getNumInputs(); i++) {
-    auto t = linalgOp.getInput(i).getType().template cast<ShapedType>();
-for (int j=0; j<t.getRank(); j++)
-  shapeSizes.push_back(t.getDimSize(j));
-  }
-  for (int i=0; i<linalgOp.getNumOutputs(); i++) {
-    auto t = linalgOp.getOutput(i).getType().template cast<ShapedType>();
+  for (int i=0; i<linalgOp.getNumShapedOperands(); i++) {
+    auto t = linalgOp.getShapedOperand(i).getType().template cast<ShapedType>();
 for (int j=0; j<t.getRank(); j++)
   shapeSizes.push_back(t.getDimSize(j));
   }
@@ -310,15 +306,18 @@ for (int j=0; j<t.getRank(); j++)
   for (int j=0; j<indexAccess.size(); j++) {
     // The number of accesses and shape sizes are always same?
     if (i >= shapeSizes.size()) { printf("something left\n"); break; }
-//    printf("input size %d, \n", shapeSizes[i]);
+//    printf("shape size %d = \n", shapeSizes[i]);
 //    indexAccess[j].dump();
-    if (checker.count(indexAccess[j]) && checker[indexAccess[j]] != shapeSizes[i]) printf("mismatch\n");
-    else
-      checker[indexAccess[j]] = shapeSizes[i];
+    if (checker.count(indexAccess[j]) && checker[indexAccess[j]] < shapeSizes[i]) printf("mismatch\n");
+    else if (!checker.count(indexAccess[j])) checker[indexAccess[j]] = shapeSizes[i];
       i++;
   }
 // printf("operand size %d access size %d\n", shapeSizes.size(), indexAccess.size());
 
+//  Optional<SmallVector<int64_t, 4>> s = getStaticLoopRanges(linalgOp);
+//  for (int i=0; i<s.size(); i++)
+//  printf("%ld ", (*s)[0]);
+  
   // Expect at least one shaped operand.
   // This means an op that constructs a tensor out of indices cannot be a
   // LinalgOp at the moment. For now this will have to be a special op until we
